@@ -44,6 +44,7 @@ static struct class_simple *my_class;
 static __u16 pol = SEC_VOLTAGE_OFF;
 static __u16 tone = 0;
 static int usecount = 0;
+static int polled = 0;
 static struct dvb_frontend_event old_event;
 
 static struct dvb_frontend_info fe_info = {
@@ -124,6 +125,7 @@ static unsigned int device_poll(struct file *file, struct poll_table_struct *wai
 	if (!tdfe->f_op || !tdfe->f_op->poll)
 		return -ENOTTY;
 
+	polled = 1;
 	oldfs = get_fs();
 	set_fs(get_ds());
 
@@ -266,12 +268,13 @@ static long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			event.parameters.frequency = t.realfrq;
 			if (event.status & FE_HAS_LOCK)
 				file_ioctl(TD_FE_LOCKLED_ENABLE, 1);
-			/* if nothing changed, return error */
-			if (!memcmp(&old_event, &event, sizeof(struct dvb_frontend_event)))
-				ret = -ENOENT;
-			memcpy(&old_event, &event, sizeof(struct dvb_frontend_event));
+			/* if no poll before GET_EVENT => return error
+			   this is adopted to neutrino userspace behaviour */
+			if (!polled)
+				ret = -EWOULDBLOCK;
 			if (copy_to_user((struct dvb_frontend_event *)arg, &event, sizeof(struct dvb_frontend_event)))
 				ret = -EFAULT;
+			polled = 0;
 			break;
 		case FE_SET_TONE:
 			if (arg == SEC_TONE_ON)
