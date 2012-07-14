@@ -216,8 +216,12 @@ static int device_open(struct inode *inode, struct file *file)
 
 static int device_release(struct inode *inode, struct file *file)
 {
-	if (tdfe)
+	if (tdfe) {
+		/* reset the tuner on close */
+		if (pol != SEC_VOLTAGE_OFF)
+			device_ioctl(NULL, FE_SET_VOLTAGE, SEC_VOLTAGE_OFF);
 		filp_close(tdfe, NULL);
+	}
 	tdfe = NULL;
 	usecount--;
 	return 0;
