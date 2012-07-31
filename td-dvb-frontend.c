@@ -245,6 +245,8 @@ static long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				ret = -EFAULT;
 			break;
 		case FE_READ_STATUS:
+			file_ioctl(TD_FE_READ_STATUS_C, (__u32)&ui32);
+			put_user(ui32, (__u32 *)arg);
 			break;
 		case FE_READ_BER:
 			file_ioctl(TD_FE_SET_ERROR_SOURCE, ERR_SRC_VITERBI_BIT_ERRORS);
@@ -326,7 +328,13 @@ static long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		case FE_SET_PROPERTY:
 #define FREQUENCY 1
 #define SYMBOL_RATE 4
+#define DELIVERY_SYSTEM 5
 			cmdseq = (struct dtv_properties *)arg;
+			/* don't even try to tune to DVB-S2 */
+			if (cmdseq->props[DELIVERY_SYSTEM].u.data != SYS_DVBS) {
+				ret = -EINVAL;
+				break;
+			}
 			t.fec = 0; /* always AUTO_FEC */
 			t.frequency = cmdseq->props[FREQUENCY].u.data;
 			t.symbolrate = cmdseq->props[SYMBOL_RATE].u.data / 1000;
