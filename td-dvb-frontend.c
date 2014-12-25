@@ -45,7 +45,6 @@ static __u16 pol = SEC_VOLTAGE_OFF;
 static __u16 tone = 0;
 static int usecount = 0;
 static int polled = 0;
-static struct dvb_frontend_event old_event;
 
 static struct dvb_frontend_info fe_info = {
 	.name = "TD Sattuner",
