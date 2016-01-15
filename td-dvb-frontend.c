@@ -234,6 +234,7 @@ static long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct dvb_frontend_event event;
 	struct dvb_diseqc_master_cmd *sec;
 	struct dtv_properties *cmdseq;
+	struct dtv_property *tvp = NULL;
 	char raw[1 + 3 + 3];
 	td_fe t;
 
@@ -347,6 +348,35 @@ static long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 #else
 			file_ioctl(TD_FE_SETUP_NB, (__u32)&t);
 #endif
+			break;
+		case FE_GET_PROPERTY:
+			cmdseq = (struct dtv_properties *)arg;
+			if (cmdseq->num != 1) { /* only DELSYS query supported for now */
+				ret = -EINVAL;
+				break;
+			}
+			tvp = kmalloc(cmdseq->num * sizeof(struct dtv_property), GFP_KERNEL);
+			if (!tvp) {
+				ret = -ENOMEM;
+				break;
+			}
+			if (copy_from_user(tvp, (void __user *)cmdseq->props,
+					   cmdseq->num * sizeof(struct dtv_property))) {
+				ret = -EFAULT;
+				kfree(tvp);
+				break;
+			}
+			ret = -EINVAL;
+			if (tvp->cmd == DTV_ENUM_DELSYS) {
+				tvp->u.buffer.data[0] = SYS_DVBS;
+				tvp->u.buffer.len = 1;
+				tvp->result = 0;
+				ret = 0;
+				if (copy_to_user((void __user *)cmdseq->props, tvp,
+						 cmdseq->num * sizeof(struct dtv_property)))
+					ret = -EFAULT;
+			}
+			kfree(tvp);
 			break;
 		default:
 			printk(KERN_ERR "td-dvb-fe: unhandled ioctl 0x%08x\n", cmd);
